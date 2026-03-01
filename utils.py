@@ -18,20 +18,32 @@ def extract_features(file_path):
     try:
         with sf.SoundFile(file_path) as sound_file:
             audio = sound_file.read(dtype="float32")
-            sr = sound_file.samplerate
-            if len(audio.shape) > 1: audio = np.mean(audio, axis=1) # Mono
+            native_sr = sound_file.samplerate
+            if len(audio.shape) > 1: audio = np.mean(audio, axis=1) # Convert to Mono if necessary
 
         # Normalize audio to a range of [-1, 1]
         # This prevents "loudness" from being interpreted as "anger"
-        # Normalization & Trimming (Prevents 'Angry' bias from volume)
+        # Noise & Volume Normalization & Trimming (Prevents 'Angry' bias from volume)
         if np.max(np.abs(audio)) > 0:
             audio = audio / np.max(np.abs(audio))
 
         # Remove dead air from the beginning and end
-        audio, _ = librosa.effects.trim(audio)
+        trim_output = librosa.effects.trim(audio, top_db=25)
+
+        # The first element [0] is always the trimmed audio array
+        audio = trim_output[0]
+
+        # Add a Pre-emphasis filter to "sharpen" the voice and ignore the hum.
+        audio = librosa.effects.preemphasis(audio)
+
+        # Fix sample rate
+        target_sr = 22050  # Must match the SR used during training
+        if native_sr != target_sr:
+            # Resample from native (e.g., 44.1k or 48k) to target (22.05k)
+            audio = librosa.resample(audio, orig_sr=native_sr, target_sr=target_sr)
 
         # 1. MFCCs
-        mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
+        mfcc = librosa.feature.mfcc(y=audio, sr=target_sr, n_mfcc=40)
         mfcc_mean = np.mean(mfcc.T, axis=0)
 
         # 2. MFCC Delta & Delta-Delta (Captures vocal transition/energy)
@@ -40,8 +52,8 @@ def extract_features(file_path):
 
         # 3. Chroma & Mel
         stft = np.abs(librosa.stft(audio))
-        chroma = np.mean(librosa.feature.chroma_stft(S=stft, sr=sr).T, axis=0)
-        mel = np.mean(librosa.feature.melspectrogram(y=audio, sr=sr).T, axis=0)
+        chroma = np.mean(librosa.feature.chroma_stft(S=stft, sr=target_sr).T, axis=0)
+        mel = np.mean(librosa.feature.melspectrogram(y=audio, sr=target_sr).T, axis=0)
 
         # Stack all features into one vector
         return np.hstack([mfcc_mean, delta_mfcc, delta2_mfcc, chroma, mel])
