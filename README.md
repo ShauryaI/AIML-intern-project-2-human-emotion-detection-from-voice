@@ -12,5 +12,5 @@ Detect speaker emotion using audio input
 
 ## Deliverables ##
 1. Trained model: emotion_rf_model.pkl
-2. emotion prediction demo: To be updated
-3. UI: ui.png
+2. emotion prediction demo: https://huggingface.co/spaces/aishwaryaIngole/voice-emotion-detection
+3. UI: ui.png and huggingface-ui.png
