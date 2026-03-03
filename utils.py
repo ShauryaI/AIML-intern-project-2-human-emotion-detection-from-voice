@@ -2,6 +2,7 @@ import os
 import librosa
 import numpy as np
 import soundfile as sf
+import noisereduce as nr
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
@@ -41,6 +42,10 @@ def extract_features(file_path):
         if native_sr != target_sr:
             # Resample from native (e.g., 44.1k or 48k) to target (22.05k)
             audio = librosa.resample(audio, orig_sr=native_sr, target_sr=target_sr)
+
+        # Noise Reduction
+        # This strips out constant background noise automatically
+        audio = nr.reduce_noise(y=audio, sr=target_sr, prop_decrease=0.8)
 
         # 1. MFCCs
         mfcc = librosa.feature.mfcc(y=audio, sr=target_sr, n_mfcc=40)
